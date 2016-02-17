@@ -299,7 +299,7 @@ typedef void (APIENTRY *glRenderbufferStorageEXTPROC) (GLenum target, GLenum int
 
 /* GL types for handling shader object handles and characters */
 typedef char GLcharARB;		/* native character */
-typedef unsigned int GLhandleARB;	/* shader object handle */
+typedef void* GLhandleARB;	/* shader object handle */
 
 typedef void (APIENTRY * glDeleteObjectARBPROC) (GLhandleARB);
 typedef GLhandleARB (APIENTRY * glGetHandleARBPROC) (GLenum);

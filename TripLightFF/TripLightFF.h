@@ -5,6 +5,20 @@
 #include "FFGLExtensions.h"
 #include <vector>
 
+#ifdef TARGET_OS_MAC
+
+#include <algorithm>
+using std::min;
+using std::max;
+
+#include <mach/mach_time.h>
+#define GetTickCount mach_absolute_time
+
+#define LPCTSTR char*
+#define _countof(arr) sizeof(arr) / sizeof(arr[0])
+
+#endif
+
 
 class FFGLGradients : public CFreeFrameGLPlugin
 {
