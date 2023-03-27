@@ -8,6 +8,7 @@
 		revision history:
 		rev		date	comments
         00      25dec15	initial version
+ 		01		15mar23	add MIDI support
 
 		TripLight document
  
@@ -17,12 +18,9 @@
 //
 /////////////////////////////////////////////////////////////////////////////
 
-#if !defined(AFX_TRIPLIGHTDOC_H__5E9D9690_8D02_4BBD_98D8_B64C80AAA711__INCLUDED_)
-#define AFX_TRIPLIGHTDOC_H__5E9D9690_8D02_4BBD_98D8_B64C80AAA711__INCLUDED_
-
-#if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
+
+#include "ArrayEx.h"
 
 class CTripLightParams {
 public:
@@ -31,27 +29,73 @@ public:
 	#include "TripLightParams.h"	// generate code to define members
 };
 
+class CMapping {
+public:
+	CMapping();
+	#define MAPPINGDEF(type, name, init) type m_##name;
+	#include "TripLightParams.h"	// generate code to define members
+	enum {	// MIDI event types
+		#define MIDICHANSTATDEF(name) EVT_##name,
+		#include "MidiCtrlrDef.h"
+		EVENT_TYPES
+	};
+	bool	IsDefault() const;
+	void	Read(LPCTSTR pszSection);
+	void	Write(LPCTSTR pszSection);
+};
+
+class CMappingArray : public CArrayEx<CMapping, CMapping&> {
+public:
+	void	Read();
+	void	Write();
+};
+
+class COptions {
+public:
+	COptions();
+	#define OPTIONSDEF(type, name, init) type m_##name;
+	#include "TripLightParams.h"	// generate code to define members
+	void	Read();
+	void	Write();
+};
+
 class CTripLightDoc : public CDocument, public CTripLightParams
 {
 protected: // create from serialization only
 	CTripLightDoc();
 	DECLARE_DYNCREATE(CTripLightDoc)
 
+// Constants
+	enum {	// update hints
+		HINT_NONE,
+		HINT_OPTIONS,
+	};
+	enum {	// mapping targets
+		MT_COLUMNS,
+		MT_ROWS,
+		MT_PATTERN,
+		MT_SPEED,
+		MT_VARIANCE,
+		MT_JUMP,
+		MT_FADE,
+		MAPPING_TARGETS
+	};
+
 // Attributes
 public:
+	CMappingArray	m_arrMapping;	// array of MIDI mappings
+	COptions	m_options;
 
 // Operations
 public:
 
 // Overrides
 	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CTripLightDoc)
-	public:
+public:
 	virtual BOOL OnNewDocument();
 	virtual void Serialize(CArchive& ar);
 	virtual BOOL OnOpenDocument(LPCTSTR lpszPathName);
 	virtual BOOL OnSaveDocument(LPCTSTR lpszPathName);
-	//}}AFX_VIRTUAL
 
 // Implementation
 public:
@@ -62,19 +106,16 @@ public:
 #endif
 
 protected:
+	int		m_nFileVersion;	// file version number
+
+// Helpers
+	void	ResetData();
 
 // Generated message map functions
 protected:
-	//{{AFX_MSG(CTripLightDoc)
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
-
-	int		m_FileVersion;	// file version number
+	afx_msg void OnToolsMapping();
+	afx_msg void OnToolsProperties();
+	afx_msg void OnToolsOptions();
 };
 
-/////////////////////////////////////////////////////////////////////////////
-
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
-
-#endif // !defined(AFX_TRIPLIGHTDOC_H__5E9D9690_8D02_4BBD_98D8_B64C80AAA711__INCLUDED_)

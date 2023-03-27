@@ -9,7 +9,10 @@
 		rev		date	comments
 		00		01sep13	initial version
 		01		07may14	in CMMTimer::Create, fix dwUser type
- 
+		02		27mar18	in GetErrorString, release buffer
+		03		17may18	output GetDeviceNames was using input struct size
+		04		08jun21	fix get device interface name warnings
+
 		wrap system MIDI and multimedia timer APIs
  
 */
@@ -66,7 +69,7 @@ MMRESULT CMidiIn::GetDeviceNames(CStringArray& DevList)
 
 MMRESULT CMidiIn::GetDeviceInterfaceName(int DevID, CString& Name)
 {
-	HMIDIIN	hDev = reinterpret_cast<HMIDIIN>(DevID);
+	HMIDIIN	hDev = reinterpret_cast<HMIDIIN>(static_cast<W64UINT>(DevID));
 	W64ULONG	size = 0;	// receives needed buffer size in bytes
 	W64ULONG	pSize = reinterpret_cast<W64ULONG>(&size);
 	MMRESULT	mr = midiInMessage(hDev, DRV_QUERYDEVICEINTERFACESIZE, pSize, 0);
@@ -116,7 +119,7 @@ MMRESULT CMidiOut::GetDeviceNames(CStringArray& DevList)
 	DevList.SetSize(nDevs);
 	MMRESULT	retc = MMSYSERR_NOERROR;
 	for (int iDev = 0; iDev < nDevs; iDev++) {
-		MMRESULT	mr = midiOutGetDevCaps(iDev, &caps, sizeof(MIDIINCAPS));
+		MMRESULT	mr = midiOutGetDevCaps(iDev, &caps, sizeof(MIDIOUTCAPS));
 		if (MIDI_SUCCEEDED(mr))
 			DevList[iDev] = caps.szPname;
 		else
@@ -127,7 +130,7 @@ MMRESULT CMidiOut::GetDeviceNames(CStringArray& DevList)
 
 MMRESULT CMidiOut::GetDeviceInterfaceName(int DevID, CString& Name)
 {
-	HMIDIOUT	hDev = reinterpret_cast<HMIDIOUT>(DevID);
+	HMIDIOUT	hDev = reinterpret_cast<HMIDIOUT>(static_cast<W64UINT>(DevID));
 	W64ULONG	size = 0;	// receives needed buffer size in bytes
 	W64ULONG	pSize = reinterpret_cast<W64ULONG>(&size);
 	MMRESULT	mr = midiOutMessage(hDev, DRV_QUERYDEVICEINTERFACESIZE, pSize, 0);
@@ -148,6 +151,7 @@ CString	CMidiOut::GetErrorString(MMRESULT mmrError)
 	CString	s;
 	LPTSTR	pBuf = s.GetBuffer(MAXERRORLENGTH);
 	MMRESULT	mr = midiOutGetErrorText(mmrError, pBuf, MAXERRORLENGTH);
+	s.ReleaseBuffer();
 	if (MIDI_FAILED(mr))
 		s.Format(_T("midiOutGetErrorText error %d"), mr);
 	return(s);

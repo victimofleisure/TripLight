@@ -8,6 +8,7 @@
 		revision history:
 		rev		date	comments
         00      14jul05	initial version
+		01		12apr18	move ctor to header
 
         compute benchmarks using performance counter
  
@@ -23,9 +24,4 @@ __int64 CBenchmark::InitFreq()
 	__int64	Freq;
 	QueryPerformanceFrequency((LARGE_INTEGER *)&Freq);
 	return(Freq);
-}
-
-CBenchmark::CBenchmark()
-{
-	Reset();
 }

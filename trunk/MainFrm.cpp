@@ -8,6 +8,7 @@
 		revision history:
 		rev		date	comments
         00      25dec15	initial version
+ 		01		15mar23	add settings
 
 		TripLight main window
  
@@ -23,6 +24,8 @@
 #include "TripLightDoc.h"
 #include "TripLightView.h"
 #include "Persist.h"
+#include "SettingsDlg.h"
+#include "PianoWnd.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -59,6 +62,8 @@ CMainFrame::CMainFrame()
 	m_ShowToolBar = FALSE;
 	m_ShowStatusBar = FALSE;
 	m_PrevCursorPos = CPoint(0, 0);
+	m_pPianoWnd = NULL;
+	m_nPianoTimer = 0;
 }
 
 CMainFrame::~CMainFrame()
@@ -90,6 +95,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	EnableDocking(CBRS_ALIGN_ANY);
 	DockControlBar(&m_ToolBar);
 	DragAcceptFiles();
+	m_arrPianoNote.SetSize(m_pView->GetToneCount());
 
 	return 0;
 }
@@ -120,7 +126,8 @@ void CMainFrame::FullScreen(bool Enable)
 			ShowWindow(SW_NORMAL);	// must show normal before full screen maximize
 		ShowWindow(SW_MAXIMIZE);	// enter full screen
 		GetCursorPos(&m_PrevCursorPos);	// save cursor position
-		SetCursorPos(GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));	// hide cursor
+		SetCursorPos(GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));	// move cursor off-screen
+		while (ShowCursor(FALSE) >= 0);	// try to hide cursor completely; may take multiple tries
 	} else {	// exiting full screen
 		ShowWindow(SW_NORMAL);	// exit full screen
 		if (m_WasZoomed)	// if previously maximized
@@ -132,18 +139,56 @@ void CMainFrame::FullScreen(bool Enable)
 		ShowControlBar(&m_ToolBar, m_ShowToolBar, TRUE);
 		CPoint	CursorPos;
 		GetCursorPos(&CursorPos);
-		if (CursorPos.x == GetSystemMetrics(SM_CXSCREEN) - 1	// if cursor still hidden
+		if (CursorPos.x == GetSystemMetrics(SM_CXSCREEN) - 1	// if cursor still off-screen
 		&& CursorPos.y == GetSystemMetrics(SM_CYSCREEN) - 1)
 			SetCursorPos(m_PrevCursorPos.x, m_PrevCursorPos.y);	// restore cursor position
+		ShowCursor(true);	// make cursor visible again
 	}
 	m_FullScreen = Enable;
+}
+
+void CMainFrame::UpdateCmdUI()
+{
+	m_ToolBar.OnUpdateCmdUI(this, FALSE);
+	m_StatusBar.OnUpdateCmdUI(this, FALSE);
+}
+
+bool CMainFrame::ShowPiano(bool bShow)
+{
+	bool	bIsShown = m_pPianoWnd != NULL;
+	if (bShow == bIsShown)	// if already in requested state
+		return true;	// nothing to do
+	if (bShow) {	// if showing piano
+		CPianoWnd	*pPianoWnd = new CPianoWnd;
+		DWORD	nStyle = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME;
+		LPCTSTR	pszClass = AfxRegisterWndClass(0, ::LoadCursor(NULL, IDC_ARROW));
+		CRect	rPiano(CPoint(200, 100), CSize(800, 150));
+		BOOL	bRetVal = pPianoWnd->CreateEx(0, pszClass, _T("Piano"), nStyle, rPiano, this, 0, 0);
+		ASSERT(bRetVal);
+		if (!bRetVal) {	// if error creating window
+			delete pPianoWnd;	// delete instance
+			return false;
+		}
+		m_pPianoWnd = pPianoWnd;
+		const int nPianoSize = 12 * 4;
+		const int nStartNote = 12 * 3;
+		pPianoWnd->SetKeyCount(nPianoSize);
+		pPianoWnd->SetStartNote(nStartNote);
+		pPianoWnd->UpdateKeyArray();
+		m_nPianoTimer = SetTimer(PIANO_TIMER_ID, PIANO_TIMER_PERIOD, NULL);	// start timer
+		SetFocus();
+	} else {	// hiding piano
+		KillTimer(m_nPianoTimer);	// stop timer
+		m_nPianoTimer = 0;
+		m_pPianoWnd->DestroyWindow();	// modeless destroy message resets our pointer
+	}
+	return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame message map
 
 BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
-	//{{AFX_MSG_MAP(CMainFrame)
 	ON_WM_CREATE()
 	ON_COMMAND(ID_WINDOW_FULL_SCREEN, OnWindowFullscreen)
 	ON_WM_DESTROY()
@@ -157,7 +202,11 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_WINDOW_ESCAPE, OnWindowEscape)
 	ON_WM_CLOSE()
 	ON_WM_TIMER()
-	//}}AFX_MSG_MAP
+	ON_COMMAND(ID_TOOLS_SETTINGS, OnToolsSettings)
+	ON_COMMAND(ID_VIEW_PIANO, OnViewPiano)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_PIANO, OnUpdateViewPiano)
+	ON_MESSAGE(UWM_MODELESS_DESTROY, OnModelessDestroy)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
@@ -196,6 +245,7 @@ void CMainFrame::OnClose()
 
 void CMainFrame::OnDestroy() 
 {
+	ShowPiano(false);
 	CPersist::SaveWnd(REG_SETTINGS, this, RK_MAIN_FRAME);
 	CFrameWnd::OnDestroy();
 }
@@ -246,4 +296,67 @@ void CMainFrame::OnWindowFullscreen()
 void CMainFrame::OnWindowEscape() 
 {
 	FullScreen(FALSE);
+}
+
+void CMainFrame::OnToolsSettings() 
+{
+	CSettingsDlg	dlg;
+	dlg.SetInfo(theApp.m_settings);
+	if (dlg.DoModal() == IDOK) {
+		dlg.GetInfo(theApp.m_settings);
+	}
+}
+
+void CMainFrame::OnViewPiano()
+{
+	ShowPiano(!IsPianoShown());
+}
+
+void CMainFrame::OnUpdateViewPiano(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(IsPianoShown());
+}
+
+LRESULT CMainFrame::OnModelessDestroy(WPARAM wParam, LPARAM lParam)
+{
+	CWnd	*pWnd = reinterpret_cast<CWnd *>(wParam);
+	if (pWnd == m_pPianoWnd) {
+		m_pPianoWnd = NULL;	// instance destroyed itself
+		KillTimer(m_nPianoTimer);
+		m_nPianoTimer = 0;
+	}
+	return 0;
+}
+
+void CMainFrame::OnTimer(UINT_PTR nIDEvent)
+{
+	if (nIDEvent == PIANO_TIMER_ID && m_pPianoWnd != NULL) {
+		int	nKeys = m_pPianoWnd->GetKeyCount();
+		int	nStartNote = m_pPianoWnd->GetStartNote();
+		int	nTones = m_pView->GetToneCount();
+		for (int iTone = 0; iTone < nTones; iTone++) {	// for each chord tone
+			BYTE	nNote = m_pView->GetToneNote(iTone);	// get tone's note
+			BYTE	nVolume = m_pView->GetToneVolume(iTone);	// get tone's volume
+			int	iKey = nNote - nStartNote;	// index of key that's turned on
+			if (iKey >= 0 && iKey < nKeys) {	// if key within piano's range
+				if (m_pView->IsToneUnmuted(iTone)) {	// if tone is unmuted
+					double	fVolumeNorm = nVolume / 127.0;	// normalize volume
+					D2D1::ColorF	clrKey(static_cast<float>(fVolumeNorm),	// red = max volume
+						static_cast<float>(1 - fVolumeNorm), 0);	// green = min volume
+					m_pPianoWnd->SetKeyColor(iKey, clrKey);	// color key according to volume
+				} else {	// tone is muted
+					m_pPianoWnd->SetKeyColor(iKey, D2D1::ColorF(0, 0, 0, 0));	// reset key color
+				}
+				if (nNote != m_arrPianoNote[iTone]) {	// if tone changed to different note
+					iKey = m_arrPianoNote[iTone] - nStartNote;	// index of key to turn off
+					if (iKey >= 0 && iKey < nKeys) {	// if key within piano's range
+						m_pPianoWnd->SetKeyColor(iKey, D2D1::ColorF(0, 0, 0, 0));	// reset key color
+					}
+					m_arrPianoNote[iTone] = nNote;	// update shadow
+				}
+			}
+		}
+		m_pPianoWnd->Invalidate();
+	}
+	CFrameWnd::OnTimer(nIDEvent);
 }

@@ -8,6 +8,7 @@
 		revision history:
 		rev		date	comments
         00      25dec15	initial version
+ 		01		15mar23	add MIDI support
 
 		TripLight application
  
@@ -33,13 +34,13 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+#define CHECK_MIDI(x) { MMRESULT nResult = x; if (MIDI_FAILED(nResult)) { OnMidiError(nResult); return false; } }
+
 /////////////////////////////////////////////////////////////////////////////
 // CTripLightApp
 
 BEGIN_MESSAGE_MAP(CTripLightApp, CWinApp)
-	//{{AFX_MSG_MAP(CTripLightApp)
 	ON_COMMAND(ID_APP_ABOUT, OnAppAbout)
-	//}}AFX_MSG_MAP
 	// Standard file based document commands
 	ON_COMMAND(ID_FILE_NEW, CWinApp::OnFileNew)
 	ON_COMMAND(ID_FILE_OPEN, CWinApp::OnFileOpen)
@@ -53,6 +54,8 @@ END_MESSAGE_MAP()
 CTripLightApp::CTripLightApp()
 {
 	// Place all significant initialization in InitInstance
+	m_iMidiDevIn = -1;
+	m_iMidiDevOut = -1;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -65,6 +68,12 @@ CTripLightApp theApp;
 
 BOOL CTripLightApp::InitInstance()
 {
+	// Initialize OLE libraries
+	if (!AfxOleInit())
+	{
+		AfxMessageBox(IDP_OLE_INIT_FAILED);
+		return FALSE;
+	}
 	AfxEnableControlContainer();
 
 	// Standard initialization
@@ -96,6 +105,7 @@ BOOL CTripLightApp::InitInstance()
 #endif
 
 	LoadStdProfileSettings();  // Load standard INI file options (including MRU)
+	m_settings.Load();
 
 	// Register the application's document templates.  Document templates
 	//  serve as the connection between documents, frame windows and views.
@@ -123,6 +133,15 @@ BOOL CTripLightApp::InitInstance()
 	return TRUE;
 }
 
+int CTripLightApp::ExitInstance()
+{
+	if (m_iMidiDevOut >= 0) {
+		m_midiOut.Reset();
+	}
+	m_settings.Store();
+	return CWinApp::ExitInstance();
+}
+
 CString CTripLightApp::GetAppPath()
 {
 	CString	s = GetCommandLine();
@@ -131,14 +150,14 @@ CString CTripLightApp::GetAppPath()
 		s = s.Mid(1).SpanExcluding(_T("\""));	// span to next quote
 	else
 		s = s.SpanExcluding(_T(" \t"));	// span to next whitespace
-	return(s);
+	return s;
 }
 
 CString CTripLightApp::GetAppFolder()
 {
 	CPathStr	path(GetAppPath());
 	path.RemoveFileSpec();
-	return(path);
+	return path;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -150,21 +169,15 @@ public:
 	CAboutDlg();
 
 // Dialog Data
-	//{{AFX_DATA(CAboutDlg)
 	enum { IDD = IDD_ABOUTBOX };
-	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CAboutDlg)
-	protected:
+protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	//}}AFX_VIRTUAL
 
 // Implementation
 protected:
-	//{{AFX_MSG(CAboutDlg)
 	virtual BOOL OnInitDialog();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 	CStatic	m_AboutText;
@@ -173,22 +186,16 @@ protected:
 
 CAboutDlg::CAboutDlg() : CDialog(CAboutDlg::IDD)
 {
-	//{{AFX_DATA_INIT(CAboutDlg)
-	//}}AFX_DATA_INIT
 }
 
 void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CAboutDlg)
 	DDX_Control(pDX, IDC_ABOUT_LICENSE, m_License);
 	DDX_Control(pDX, IDC_ABOUT_TEXT, m_AboutText);
-	//}}AFX_DATA_MAP
 }
 
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialog)
-	//{{AFX_MSG_MAP(CAboutDlg)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 BOOL CAboutDlg::OnInitDialog() 
@@ -229,12 +236,71 @@ BOOL CTripLightApp::IsIdleMessage(MSG* pMsg)
 	if (CWinApp::IsIdleMessage(pMsg)) {
 		switch (pMsg->message) {	// don't call OnIdle after these messages
 		case UWM_FRAME_TIMER:
-			return(FALSE);
+			return FALSE;
 		default:
-			return(TRUE);
+			return TRUE;
 		}
 	} else
-		return(FALSE);
+		return FALSE;
+}
+
+bool CTripLightApp::OpenMidiInputDevice(int iDevIn)
+{
+	if (iDevIn == m_iMidiDevIn)	// if already in requested state
+		return true;	// nothing to do
+	if (m_iMidiDevIn >= 0) {	// if device open
+		CHECK_MIDI(m_midiIn.Close());
+		m_iMidiDevIn = -1;
+	}
+	if (iDevIn >= 0) {	// if opening device
+		CHECK_MIDI(m_midiIn.Open(iDevIn, reinterpret_cast<W64UINT>(MidiInProc), reinterpret_cast<W64UINT>(this), CALLBACK_FUNCTION));
+		CHECK_MIDI(m_midiIn.Start());
+		m_iMidiDevIn = iDevIn;
+	}
+	return true;
+}
+
+bool CTripLightApp::OpenMidiOutputDevice(int iDevOut)
+{
+	if (iDevOut == m_iMidiDevOut)	// if already in requested state
+		return true;	// nothing to do
+	if (m_iMidiDevOut >= 0) {	// if device open
+		CHECK_MIDI(m_midiOut.Close());
+		m_iMidiDevOut = -1;
+	}
+	if (iDevOut >= 0) {	// if opening device
+		CHECK_MIDI(m_midiOut.Open(iDevOut, NULL, NULL, 0));
+		m_iMidiDevOut = iDevOut;
+	}
+	return true;
+}
+
+void CALLBACK CTripLightApp::MidiInProc(HMIDIIN hMidiIn, UINT wMsg, W64UINT dwInstance, W64UINT dwParam1, W64UINT dwParam2)
+{
+	// this callback function runs in a worker thread context; 
+	// data shared with main thread may require serialization
+	static CDWordArrayEx	arrMappedEvent;
+	UNREFERENCED_PARAMETER(hMidiIn);
+	UNREFERENCED_PARAMETER(dwInstance);
+//	_tprintf(_T("MidiInProc %d %d\n"), GetCurrentThreadId(), ::GetThreadPriority(GetCurrentThread()));
+	switch (wMsg) {
+	case MIM_DATA:
+		{
+			CMainFrame	*pFrame = theApp.GetMain();
+			if (pFrame != NULL) {
+				CTripLightView	*pView = theApp.GetMain()->GetView();
+				if (pView != NULL) {
+					pView->PostMessage(UWM_MAPPING_CHANGE, dwParam1);
+				}
+			}
+		}
+		break;
+	}
+}
+
+void CTripLightApp::OnMidiError(MMRESULT nResult)
+{
+	AfxMessageBox(CMidiOut::GetErrorString(nResult));
 }
 
 /////////////////////////////////////////////////////////////////////////////

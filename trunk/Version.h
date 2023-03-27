@@ -9,6 +9,7 @@
 		rev		date	comments
 		00		24dec15	1.0.00.000
 		01		02feb16	1.0.00.014
+		02		27mar23	1.0.01.002
 
 		DON'T FORGET TO CHANGE VERSION RESOURCE
 

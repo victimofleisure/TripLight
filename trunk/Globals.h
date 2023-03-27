@@ -40,7 +40,7 @@
 #define NODEFAULTCASE	ASSERT(0)
 
 // load string from resource via temporary object
-#define LDS(x) CString((LPCTSTR)x)
+#define LDS(x) CString(MAKEINTRESOURCE(x))
 
 #if _MFC_VER < 0x0800
 // calculate number of elements in a fixed-size array
@@ -96,9 +96,24 @@ inline CArchive& operator>>(CArchive& ar, bool& b)
 #pragma warning (pop)
 #endif
 
+// replace AfxGetApp with faster method
+class CTripLightApp;
+extern CTripLightApp theApp;
+inline CWinApp *FastGetApp()
+{
+	return reinterpret_cast<CWinApp*>(&theApp);
+}
+#define AfxGetApp FastGetApp
+
+// define benchmarking macros
+#define BENCH_START CBenchmark b;
+#define BENCH_STOP printf("%f\n", b.Elapsed());
+
 // app-specific globals
 
 enum {	// user-defined app windows messages
 	UWM_FIRST = WM_APP,
 	UWM_FRAME_TIMER,		// wParam: unused, lParam: unused
+	UWM_MAPPING_CHANGE,		// wParam: MIDI event, lParam: unused
+	UWM_MODELESS_DESTROY,	// wParam: CWnd*, lParam: none
 };

@@ -8,6 +8,7 @@
 		revision history:
 		rev		date	comments
         00      25dec15	initial version
+ 		01		15mar23	add settings
 
 		TripLight main window
  
@@ -17,14 +18,12 @@
 //
 /////////////////////////////////////////////////////////////////////////////
 
-#if !defined(AFX_MAINFRM_H__76E6CCA4_E826_4A48_986D_F427C5F09B6D__INCLUDED_)
-#define AFX_MAINFRM_H__76E6CCA4_E826_4A48_986D_F427C5F09B6D__INCLUDED_
-
-#if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
+
+#include "ArrayEx.h"
 
 class CTripLightView;
+class CPianoWnd;
 
 class CMainFrame : public CFrameWnd
 {
@@ -36,17 +35,20 @@ protected: // create from serialization only
 // Attributes
 public:
 	CTripLightView	*GetView();
+	bool	IsFullScreen() const;
+	CPianoWnd	*GetPianoWnd();
+	bool	IsPianoShown() const;
 
 // Operations
 public:
 	void	FullScreen(bool Enable);
+	void	UpdateCmdUI();
+	bool	ShowPiano(bool bShow);
 
 // Overrides
 	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CMainFrame)
-	public:
+public:
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
-	//}}AFX_VIRTUAL
 
 // Implementation
 public:
@@ -62,7 +64,35 @@ protected:  // control bar embedded members
 
 // Generated message map functions
 protected:
-	//{{AFX_MSG(CMainFrame)
+// Constants
+	enum {	// status bar panes
+		SBP_HINT,
+		SBP_ROWS,
+		SBP_COLS,
+		SBP_COLOR_SPEED,
+		SBP_COLOR_SPEED_VAR,
+		SBP_PAUSE,
+		SBP_BACKWARD,
+		SBP_FRAME_NUMBER,
+	};
+	enum {
+		PIANO_TIMER_ID = 1861,
+		PIANO_TIMER_PERIOD = 20,
+	};
+
+// Data members
+	CTripLightView	*m_pView;	// one and only view
+	bool	m_WasShown;			// true if window was shown
+	bool	m_FullScreen;		// true if full screen
+	bool	m_WasZoomed;		// true if maximized prior to going full screen
+	bool	m_ShowToolBar;		// true if tool bar was showing prior to going full screen
+	bool	m_ShowStatusBar;	// true if status bar was showing prior to going full screen
+	CPoint	m_PrevCursorPos;	// cursor position prior to going full screen
+	CPianoWnd	*m_pPianoWnd;	// pointer to piano window instance if any
+	UINT_PTR	m_nPianoTimer;	// piano timer instance
+	CByteArrayEx	m_arrPianoNote;	// array of piano's active MIDI notes
+
+	DECLARE_MESSAGE_MAP()
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnWindowFullscreen();
 	afx_msg void OnDestroy();
@@ -75,29 +105,11 @@ protected:
 	afx_msg void OnUpdateIndicatorBackward(CCmdUI *pCmdUI);
 	afx_msg void OnWindowEscape();
 	afx_msg void OnClose();
-	//}}AFX_MSG
-	DECLARE_MESSAGE_MAP()
-
-// Constants
-	enum {	// status bar panes
-		SBP_HINT,
-		SBP_ROWS,
-		SBP_COLS,
-		SBP_COLOR_SPEED,
-		SBP_COLOR_SPEED_VAR,
-		SBP_PAUSE,
-		SBP_BACKWARD,
-		SBP_FRAME_NUMBER,
-	};
-
-// Data members
-	CTripLightView	*m_pView;	// one and only view
-	bool	m_WasShown;			// true if window was shown
-	bool	m_FullScreen;		// true if full screen
-	bool	m_WasZoomed;		// true if maximized prior to going full screen
-	bool	m_ShowToolBar;		// true if tool bar was showing prior to going full screen
-	bool	m_ShowStatusBar;	// true if status bar was showing prior to going full screen
-	CPoint	m_PrevCursorPos;	// cursor position prior to going full screen
+	afx_msg void OnToolsSettings();
+	afx_msg void OnViewPiano();
+	afx_msg void OnUpdateViewPiano(CCmdUI *pCmdUI);
+	afx_msg LRESULT OnModelessDestroy(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 };
 
 inline CTripLightView *CMainFrame::GetView()
@@ -105,9 +117,17 @@ inline CTripLightView *CMainFrame::GetView()
 	return(m_pView);
 }
 
-/////////////////////////////////////////////////////////////////////////////
+inline bool CMainFrame::IsFullScreen() const
+{
+	return m_FullScreen;
+}
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+inline CPianoWnd *CMainFrame::GetPianoWnd()
+{
+	return m_pPianoWnd;
+}
 
-#endif // !defined(AFX_MAINFRM_H__76E6CCA4_E826_4A48_986D_F427C5F09B6D__INCLUDED_)
+inline bool CMainFrame::IsPianoShown() const
+{
+	return m_pPianoWnd != NULL;
+}

@@ -8,6 +8,7 @@
 		revision history:
 		rev		date	comments
         00      14jul05	initial version
+		01		12apr18	move ctor to header
 
         compute benchmarks using performance counter
  
@@ -28,6 +29,11 @@ private:
 	static	__int64	m_Freq;	// performance counter frequency, in Hz
 	static	__int64	InitFreq();
 };
+
+inline CBenchmark::CBenchmark()
+{
+	Reset();
+}
 
 inline double CBenchmark::Time()
 {

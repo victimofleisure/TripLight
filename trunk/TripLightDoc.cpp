@@ -8,6 +8,7 @@
 		revision history:
 		rev		date	comments
         00      25dec15	initial version
+ 		01		15mar23	add MIDI support
 
 		TripLight document
  
@@ -24,6 +25,9 @@
 #include "MainFrm.h"
 #include "IniFile.h"
 #include "RegWrap.h"
+#include "MappingDlg.h"
+#include "PropertiesDlg.h"
+#include "OptionsDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -31,39 +35,125 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+#define RK_MAPPING_COUNT _T("Mappings")
+#define RK_MAPPING_SECTION _T("Mapping\\")
+
+CMapping::CMapping()
+{
+	#define MAPPINGDEF(type, name, init) m_##name = init;
+	#include "TripLightParams.h"	// generate code to initialize members
+}
+
+bool CMapping::IsDefault() const
+{
+	#define MAPPINGDEF(type, name, init) if (m_##name != init) return false;
+	#include "TripLightParams.h"	// generate code to test members
+	return TRUE;
+}
+
+void CMapping::Read(LPCTSTR pszSection)
+{
+	#define MAPPINGDEF(type, name, init) RdReg(pszSection, _T(#name), m_##name);
+	#include "TripLightParams.h"	// generate code to read members
+}
+
+void CMapping::Write(LPCTSTR pszSection)
+{
+	#define MAPPINGDEF(type, name, init) WrReg(pszSection, _T(#name), m_##name);
+	#include "TripLightParams.h"	// generate code to write members
+}
+
+void CMappingArray::Read()
+{
+	int	nMappings = 0;
+	RdReg(theApp.m_pszAppName, RK_MAPPING_COUNT, nMappings);
+	SetSize(nMappings);
+	CString	sSection(RK_MAPPING_SECTION);
+	CString	sNum;
+	for (int iMap = 0; iMap < nMappings; iMap++) {
+		sNum.Format(_T("%d"), iMap);
+		GetAt(iMap).Read(sSection + sNum);
+	}
+}
+
+void CMappingArray::Write()
+{
+	int	nMappings = GetSize();
+	if (nMappings) {
+		WrReg(theApp.m_pszAppName, RK_MAPPING_COUNT, nMappings);
+		CString	sSection(RK_MAPPING_SECTION);
+		CString	sNum;
+		for (int iMap = 0; iMap < nMappings; iMap++) {
+			sNum.Format(_T("%d"), iMap);
+			GetAt(iMap).Write(sSection + sNum);
+		}
+	}
+}
+
+#define RK_OPTS_MIDI_IN_DEVICE _T("MidiInDev")
+#define RK_OPTS_MIDI_OUT_DEVICE _T("MidiOutDev")
+#define RK_OPTS_FULL_SCREEN _T("FullScreen")
+
+COptions::COptions()
+{
+	#define OPTIONSDEF(type, name, init) m_##name = init;
+	#include "TripLightParams.h"	// generate code to initialize members
+}
+
+void COptions::Read()
+{
+	#define OPTIONSDEF(type, name, init) RdReg(theApp.m_pszAppName, _T(#name), m_##name);
+	#include "TripLightParams.h"	// generate code to define members
+}
+
+void COptions::Write()
+{
+	#define OPTIONSDEF(type, name, init) if (m_##name != init) WrReg(theApp.m_pszAppName, _T(#name), m_##name);
+	#include "TripLightParams.h"	// generate code to define members
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CTripLightDoc
 
 IMPLEMENT_DYNCREATE(CTripLightDoc, CDocument)
 
 BEGIN_MESSAGE_MAP(CTripLightDoc, CDocument)
-	//{{AFX_MSG_MAP(CTripLightDoc)
-	//}}AFX_MSG_MAP
+	ON_COMMAND(ID_TOOLS_MAPPING, OnToolsMapping)
+	ON_COMMAND(ID_TOOLS_PROPERTIES, OnToolsProperties)
+	ON_COMMAND(ID_TOOLS_OPTIONS, OnToolsOptions)
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
 // CTripLightDoc construction/destruction
 
 #define RK_FILE_VERSION _T("FileVersion")
-#define FILE_VERSION 0
+#define FILE_VERSION 1
 
 CTripLightDoc::CTripLightDoc()
 {
-	m_FileVersion = FILE_VERSION;
+	m_nFileVersion = FILE_VERSION;
+	ResetData();
 }
 
 CTripLightDoc::~CTripLightDoc()
 {
 }
 
+void CTripLightDoc::ResetData()
+{
+	CTripLightParams	paramsDefault;
+	CTripLightParams&	params = *this;
+	params = paramsDefault;
+	m_arrMapping.RemoveAll();
+	COptions	optsDefault;
+	m_options = optsDefault;
+}
+
 BOOL CTripLightDoc::OnNewDocument()
 {
 	if (!CDocument::OnNewDocument())
 		return FALSE;
-
-	CTripLightParams	DefaultParams;
-	CTripLightParams&	params = *this;
-	params = DefaultParams;
+	ResetData();
 
 	return TRUE;
 }
@@ -111,11 +201,14 @@ BOOL CTripLightDoc::OnOpenDocument(LPCTSTR lpszPathName)
 {
 	if (!CDocument::OnOpenDocument(lpszPathName))
 		return FALSE;
+	ResetData();
 	CIniFile	file;
 	file.Open(lpszPathName, CFile::modeRead);
-	m_FileVersion = theApp.GetProfileInt(theApp.m_pszAppName, RK_FILE_VERSION, FILE_VERSION);
+	m_nFileVersion = theApp.GetProfileInt(theApp.m_pszAppName, RK_FILE_VERSION, FILE_VERSION);
 	#define TLPARAMDEF(type, name, init) RdReg(theApp.m_pszAppName, _T(#name), m_##name);
 	#include "TripLightParams.h"	// generate code to read members from INI file
+	m_arrMapping.Read();
+	m_options.Read();
 	return TRUE;
 }
 
@@ -130,5 +223,52 @@ BOOL CTripLightDoc::OnSaveDocument(LPCTSTR lpszPathName)
 	WrReg(theApp.m_pszAppName, RK_FILE_VERSION, FILE_VERSION);
 	#define TLPARAMDEF(type, name, init) WrReg(theApp.m_pszAppName, _T(#name), m_##name);
 	#include "TripLightParams.h"	// generate code to write members to INI file
+	m_arrMapping.Write();
+	m_options.Write();
 	return TRUE;
+}
+
+void CTripLightDoc::OnToolsMapping()
+{
+	CMappingDlg	dlg;
+	int	nMaps = m_arrMapping.GetSize();
+	for (int iMap = 0; iMap < nMaps; iMap++) {
+		const CMapping&	map = m_arrMapping[iMap];
+		dlg.m_arrMapping[map.m_Target] = map;
+	}
+	if (dlg.DoModal() == IDOK) {
+		m_arrMapping.RemoveAll();
+		for (int iTarg = 0; iTarg < MAPPING_TARGETS; iTarg++) {
+			CMapping&	map = dlg.m_arrMapping[iTarg];
+			if (!map.IsDefault()) {
+				map.m_Target = iTarg;
+				m_arrMapping.Add(map);
+			}
+		}
+		SetModifiedFlag();
+	}
+}
+
+void CTripLightDoc::OnToolsProperties()
+{
+	CPropertiesDlg	dlg;
+	theApp.GetMain()->GetView()->GetParams(dlg);
+	if (dlg.DoModal() == IDOK) {
+		CTripLightParams&	paramsDoc = *this;
+		paramsDoc = dlg;
+		SetModifiedFlag();
+		UpdateAllViews(NULL, HINT_NONE);
+	}
+}
+
+void CTripLightDoc::OnToolsOptions()
+{
+	COptionsDlg	dlg;
+	COptions&	optsDlg = dlg;
+	optsDlg = m_options;
+	if (dlg.DoModal() == IDOK) {
+		m_options = dlg;
+		SetModifiedFlag();
+		UpdateAllViews(NULL, HINT_OPTIONS);
+	}
 }
