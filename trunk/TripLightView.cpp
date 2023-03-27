@@ -478,7 +478,6 @@ LRESULT CTripLightView::OnFrameTimer(WPARAM wParam, LPARAM lParam)
 				m_nModKey = (m_nKey + 5) % OCTAVE;
 				m_nModHalfStepMask = GetChord(m_nModKey, CHORD_MODE, m_arrModTone);
 				m_nModPrunes = Rand(MAX_MOD_PRUNES + 1);
-//_tprintf(_T("modulate to %s, %d drops\n"), GetKeyName(m_nModKey), m_nModPrunes);//@@@
 			}
 		}
 		bool	bSpreadVerts = nVerts >= 9;	// need at least nine vertices to spread them
@@ -547,14 +546,12 @@ bool CTripLightView::TryModulation(int iSilentTone)
 		BYTE	nOldNote = GetToneNote(iSilentTone);
 		if (nNewNote != nOldNote) {	// if target note differs from current note
 			if (m_nUnmuteMask & nToneBit) {	// if tone is unmuted
-//_tprintf(_T("%d: mute dissonant note %s\n"), iSilentTone, GetNoteName(nNewNote));//@@@
 				m_nUnmuteMask &= ~nToneBit;	// mute tone
 				m_nModPrunes--;	// one less prune
 				nConflicts++;	// add a conflict
 			}
 		} else {	// target note matches current note
 			if (m_nModPrunes > 0) {	// if prunes remain
-//_tprintf(_T("%d: mute %s\n"), iSilentTone, GetNoteName(nNewNote));//@@@
 				m_nUnmuteMask &= ~nToneBit;	// mute tone
 				m_nModPrunes--;	// one less prune
 			}
@@ -573,7 +570,6 @@ bool CTripLightView::TryModulation(int iSilentTone)
 	}
 	if (nConflicts)	// if one or more conflicts
 		return false;	// modulation incomplete
-//printf("modulation complete, key duration %d seconds\n", (m_iFrame - m_iLastModFrame) / 100);//@@@
 	m_nKey = m_nModKey;
 	m_arrTone = m_arrModTone;
 	m_nHalfStepMask = m_nModHalfStepMask;
