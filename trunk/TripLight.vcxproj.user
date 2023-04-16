@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>C:\Chris\MyProjects\Triplight\art\testMIDI.trip</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>C:\Chris\MyProjects\Triplight\art\testMIDIAnthony2.trip</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

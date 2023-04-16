@@ -9,6 +9,7 @@
 		rev		date	comments
         00      25dec15	initial version
  		01		15mar23	add MIDI support
+		02		15apr23	add modulation period constant
 
 		TripLight view
  
@@ -146,7 +147,8 @@ protected:
 		NOTE_VELOCITY = 100,	// in MIDI velocity units
 		CHORD_START = 36,		// in MIDI notes
 		PATCH_NUMBER = 48,		// strings patch
-		MAX_MOD_PRUNES = 3,		// maximum number voices to prune during modulation
+		MODULATION_PERIOD = 3000,	// modulation period in timer ticks
+		MAX_MOD_PRUNES = 3,		// maximum number of voices to prune during modulation
 	};
 	static const LPCTSTR m_arrNoteName[OCTAVE];
 

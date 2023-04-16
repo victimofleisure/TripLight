@@ -9,6 +9,8 @@
 		rev		date	comments
         00      25dec15	initial version
  		01		15mar23	add MIDI support
+		02		15apr23	move modulation period to header
+		03		16apr23	seed with system time, not tick count
 
 		TripLight view
  
@@ -55,8 +57,8 @@ const LPCTSTR CTripLightView::m_arrNoteName[OCTAVE] = {
 
 #define CHECK_HARMONY 1
 #define SHOW_PERF_STATS 0
-#define EXPORT_MIDI_ONLY 1
-#define DUMP_MIDI_TEXT 1
+#define EXPORT_MIDI_ONLY 0
+#define DUMP_MIDI_TEXT 0
 
 CTripLightView::CTripLightView()
 {
@@ -472,8 +474,7 @@ LRESULT CTripLightView::OnFrameTimer(WPARAM wParam, LPARAM lParam)
 	}
 	if (theApp.IsMidiOutputDeviceOpen()) {	// if MIDI output device is open
 		if (!m_bModulating) {	// if not modulating
-			const int	nModulationPeriod = 3000;//@@@ make this a doc property
-			if (m_iFrame - m_iLastModFrame >= nModulationPeriod) {	// if modulation due
+			if (m_iFrame - m_iLastModFrame >= MODULATION_PERIOD) {	// if modulation due
 				m_bModulating = true;
 				m_nModKey = (m_nKey + 5) % OCTAVE;
 				m_nModHalfStepMask = GetChord(m_nModKey, CHORD_MODE, m_arrModTone);
@@ -907,9 +908,10 @@ int CTripLightView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 void CTripLightView::OnInitialUpdate() 
 {
 	CTripLightDoc	*pDoc = GetDocument();
-	int	nRandomSeed = pDoc->m_options.m_RandomSeed;
-	if (!nRandomSeed)	// if random number seed not specified
-		nRandomSeed = GetTickCount();	// use system time so every run is different
+	UINT	nRandomSeed = pDoc->m_options.m_RandomSeed;
+	if (!nRandomSeed) {	// if random number seed not specified
+		nRandomSeed = static_cast<UINT>(time(NULL));	// use system time so every run is different
+	}
 	srand(nRandomSeed);	// set random number seed; do this before calling base class
 	CView::OnInitialUpdate();
 	MidiInit();
