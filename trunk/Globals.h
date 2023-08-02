@@ -14,6 +14,7 @@
 		04		05apr15	add chord dictionary change message
 		05		29apr15	remove hide sizing bar message
 		06		11jun15	remove chord dictionary change message
+		07		02aug23	add snapshot file extension
 
 		global definitions and inlines
 
@@ -110,6 +111,8 @@ inline CWinApp *FastGetApp()
 #define BENCH_STOP printf("%f\n", b.Elapsed());
 
 // app-specific globals
+
+#define SNAPSHOT_FILE_EXT _T(".tripsnap")
 
 enum {	// user-defined app windows messages
 	UWM_FIRST = WM_APP,

@@ -9,6 +9,7 @@
 		rev		date	comments
         00      25dec15	initial version
  		01		15mar23	add MIDI support
+		02		02aug23	restore snapshot support
 
 		TripLight document
  
@@ -164,6 +165,28 @@ CTripLightParams::CTripLightParams()
 	#include "TripLightParams.h"	// generate code to initialize members
 }
 
+void CTripLightParams::SerializeSnapshot(CArchive& ar)
+{
+	if (ar.IsStoring())
+	{
+		ar << SNAPSHOT_FILE_ID;
+		ar << SNAPSHOT_FILE_VERSION;
+		#define TLPARAMDEF(type, name, init) ar << m_##name;
+		#include "TripLightParams.h"	// generate code to store members
+	}
+	else
+	{
+		int	FileID;
+		ar >> FileID;
+		if (FileID != SNAPSHOT_FILE_ID)
+			AfxThrowArchiveException(CArchiveException::badIndex, ar.GetFile()->GetFilePath());
+		int	FileVersion;
+		ar >> FileVersion;
+		#define TLPARAMDEF(type, name, init) ar >> m_##name;
+		#include "TripLightParams.h"	// generate code to load members
+	}
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CTripLightDoc serialization
 
@@ -199,12 +222,23 @@ void CTripLightDoc::Dump(CDumpContext& dc) const
 
 BOOL CTripLightDoc::OnOpenDocument(LPCTSTR lpszPathName) 
 {
-	if (!CDocument::OnOpenDocument(lpszPathName))
-		return FALSE;
-	ResetData();
+	LPCTSTR	pszExt = PathFindExtension(lpszPathName);
+	if (pszExt != NULL) {	// if extension found
+		if (!_tcsicmp(pszExt, SNAPSHOT_FILE_EXT)) {	// if extension matches
+			CTripLightView	*pView = STATIC_DOWNCAST(CTripLightView, theApp.GetMain()->GetActiveView());
+			pView->LoadSnapshot(lpszPathName);
+			return FALSE;
+		}
+	}
 	CIniFile	file;
 	file.Open(lpszPathName, CFile::modeRead);
-	m_nFileVersion = theApp.GetProfileInt(theApp.m_pszAppName, RK_FILE_VERSION, FILE_VERSION);
+	int	nFileVersion = theApp.GetProfileInt(theApp.m_pszAppName, RK_FILE_VERSION, -1);
+	if (nFileVersion < 0)	// if invalid file version
+		AfxThrowArchiveException(CArchiveException::badIndex, lpszPathName);	// throw invalid format
+	if (!CDocument::OnOpenDocument(lpszPathName))
+		return FALSE;
+	m_nFileVersion = nFileVersion;
+	ResetData();
 	#define TLPARAMDEF(type, name, init) RdReg(theApp.m_pszAppName, _T(#name), m_##name);
 	#include "TripLightParams.h"	// generate code to read members from INI file
 	m_arrMapping.Read();

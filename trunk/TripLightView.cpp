@@ -11,6 +11,7 @@
  		01		15mar23	add MIDI support
 		02		15apr23	move modulation period to header
 		03		16apr23	seed with system time, not tick count
+		04		02aug23	restore snapshot support
 
 		TripLight view
  
@@ -59,6 +60,8 @@ const LPCTSTR CTripLightView::m_arrNoteName[OCTAVE] = {
 #define SHOW_PERF_STATS 0
 #define EXPORT_MIDI_ONLY 0
 #define DUMP_MIDI_TEXT 0
+
+#define SNAPSHOT_FILTER _T("TripLight Snapshots (*.tripsnap)|*.tripsnap|All Files (*.*)|*.*||")
 
 CTripLightView::CTripLightView()
 {
@@ -778,6 +781,44 @@ CTripLightView::CPause::~CPause()
 	m_View.SetPause(m_bPrevPause);	// restore previous state
 }
 
+void CTripLightView::SaveSnapshot(LPCTSTR Path)
+{
+	CFile	fp(Path, CFile::modeCreate | CFile::modeWrite);
+	CArchive	ar(&fp, CArchive::store);
+	SerializeSnapshot(ar);
+	int	nVerts = m_arrVert.GetSize();
+	for (int iVert = 0; iVert < nVerts; iVert++) {	// for each vertex
+		const TRIVERTEX&	vert = m_arrVert[iVert];
+		ar << vert.Red;
+		ar << vert.Green;
+		ar << vert.Blue;
+		const VERTEX_INFO&	info = m_arrVertInfo[iVert];
+		ar << info.nDeltaRed;
+		ar << info.nDeltaGreen;
+		ar << info.nDeltaBlue;
+	}
+}
+
+void CTripLightView::LoadSnapshot(LPCTSTR Path)
+{
+	theApp.GetMainWnd()->SendMessage(WM_COMMAND, ID_FILE_NEW);
+	CFile	fp(Path, CFile::modeRead);
+	CArchive	ar(&fp, CArchive::load);
+	GetDocument()->SerializeSnapshot(ar);
+	OnInitialUpdate();	// order matters; resizes arrays
+	int	nVerts = m_arrVert.GetSize();
+	for (int iVert = 0; iVert < nVerts; iVert++) {	// for each vertex
+		TRIVERTEX&	vert = m_arrVert[iVert];
+		ar >> vert.Red;
+		ar >> vert.Green;
+		ar >> vert.Blue;
+		VERTEX_INFO&	info = m_arrVertInfo[iVert];
+		ar >> info.nDeltaRed;
+		ar >> info.nDeltaGreen;
+		ar >> info.nDeltaBlue;
+	}
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CTripLightView message map
 
@@ -813,6 +854,8 @@ BEGIN_MESSAGE_MAP(CTripLightView, CView)
 	ON_MESSAGE(UWM_MAPPING_CHANGE, OnMappingChange)
 	ON_COMMAND(ID_FILE_EXPORT, OnFileExport)
 	ON_COMMAND(ID_TOOLS_FADE, OnToolsFade)
+	ON_COMMAND(ID_FILE_SAVE_SNAPSHOT, OnFileSaveSnapshot)
+	ON_COMMAND(ID_FILE_LOAD_SNAPSHOT, OnFileLoadSnapshot)
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1228,4 +1271,19 @@ void CTripLightView::OnFileRecord()
 		}
 	}
 	m_arrMidiTrack.RemoveAll();
+}
+
+void CTripLightView::OnFileSaveSnapshot() 
+{
+	CPause	pause(*this);
+	CFileDialog	fd(FALSE, SNAPSHOT_FILE_EXT, GetDefaultFileName(), OFN_OVERWRITEPROMPT, SNAPSHOT_FILTER);
+	if (fd.DoModal() == IDOK)
+		SaveSnapshot(fd.GetPathName());
+}
+
+void CTripLightView::OnFileLoadSnapshot() 
+{
+	CFileDialog	fd(TRUE, SNAPSHOT_FILE_EXT, NULL, OFN_HIDEREADONLY, SNAPSHOT_FILTER);
+	if (fd.DoModal() == IDOK)
+		LoadSnapshot(fd.GetPathName());
 }

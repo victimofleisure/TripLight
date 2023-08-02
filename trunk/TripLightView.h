@@ -10,6 +10,7 @@
         00      25dec15	initial version
  		01		15mar23	add MIDI support
 		02		15apr23	add modulation period constant
+		03		02aug23	restore snapshot support
 
 		TripLight view
  
@@ -71,6 +72,8 @@ public:
 	void	ResizeMesh();
 	bool	ExportBitmap(LPCTSTR pszPath, CSize szImg);
 	bool	ExportPNG(LPCTSTR pszPath, CSize szImg);
+	void	SaveSnapshot(LPCTSTR Path);
+	void	LoadSnapshot(LPCTSTR Path);
 	static	CString	GetNoteName(int nNote);
 	static	LPCTSTR	GetKeyName(int nNote);
 
@@ -248,6 +251,8 @@ protected:
 	afx_msg void OnFileExport();
 	afx_msg void OnToolsFade();
 	afx_msg void OnFileRecord();
+	afx_msg void OnFileSaveSnapshot();
+	afx_msg void OnFileLoadSnapshot();
 	DECLARE_MESSAGE_MAP()
 };
 

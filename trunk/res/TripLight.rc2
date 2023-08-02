@@ -17,7 +17,7 @@
 #define MAJOR_VERSION		1
 #define MINOR_VERSION		0
 #define MAJOR_SUBVERSION	1
-#define MINOR_SUBVERSION	3
+#define MINOR_SUBVERSION	4
 
 /////////////////////////////////////////////////////////////////////////////
 

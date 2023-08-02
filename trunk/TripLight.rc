@@ -133,6 +133,8 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Export...\tCtrl+E",          ID_FILE_EXPORT
         MENUITEM "&Record...\tCtrl+R",          ID_FILE_RECORD
+        MENUITEM "&Take Snapshot\tCtrl+T",      ID_FILE_SAVE_SNAPSHOT
+        MENUITEM "&Load Snapshot\tCtrl+L",      ID_FILE_LOAD_SNAPSHOT
         MENUITEM SEPARATOR
         MENUITEM "Recent File",                 ID_FILE_MRU_FILE1
         MENUITEM SEPARATOR
@@ -210,11 +212,13 @@ BEGIN
     VK_BACK,        ID_EDIT_UNDO,           VIRTKEY, ALT, NOINVERT
     "Z",            ID_EDIT_UNDO,           VIRTKEY, CONTROL, NOINVERT
     "E",            ID_FILE_EXPORT,         VIRTKEY, CONTROL, NOINVERT
+    "L",            ID_FILE_LOAD_SNAPSHOT,  VIRTKEY, CONTROL, NOINVERT
     "N",            ID_FILE_NEW,            VIRTKEY, CONTROL, NOINVERT
     "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
     "P",            ID_FILE_PRINT,          VIRTKEY, CONTROL, NOINVERT
     "R",            ID_FILE_RECORD,         VIRTKEY, CONTROL, NOINVERT
     "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
+    "T",            ID_FILE_SAVE_SNAPSHOT,  VIRTKEY, CONTROL, NOINVERT
     VK_F5,          ID_IMAGE_COLOR_JUMP,    VIRTKEY, NOINVERT
     VK_LEFT,        ID_IMAGE_COLS_LESS,     VIRTKEY, NOINVERT
     VK_RIGHT,       ID_IMAGE_COLS_MORE,     VIRTKEY, NOINVERT
@@ -630,6 +634,9 @@ END
 STRINGTABLE
 BEGIN
     AFX_IDS_PREVIEW_CLOSE   "Close print preview mode\nCancel Preview"
+    ID_FILE_LOAD_SNAPSHOT   "Restore previously saved snapshot\nLoad Snapshot"
+    ID_FILE_RECORD          "Record video as image sequence\nRecord"
+    ID_FILE_SAVE_SNAPSHOT   "Save a snapshot of current image\nTake Snapshot"
 END
 
 #endif    // English (United States) resources

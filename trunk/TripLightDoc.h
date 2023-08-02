@@ -9,6 +9,7 @@
 		rev		date	comments
         00      25dec15	initial version
  		01		15mar23	add MIDI support
+		02		02aug23	restore snapshot support
 
 		TripLight document
  
@@ -27,6 +28,11 @@ public:
 	CTripLightParams();
 	#define TLPARAMDEF(type, name, init) type m_##name;
 	#include "TripLightParams.h"	// generate code to define members
+	void	SerializeSnapshot(CArchive& ar);
+	enum {
+		SNAPSHOT_FILE_ID = 0x70697254,	// Trip
+		SNAPSHOT_FILE_VERSION = 0,
+	};
 };
 
 class CMapping {
