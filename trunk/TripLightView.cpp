@@ -12,6 +12,7 @@
 		02		15apr23	move modulation period to header
 		03		16apr23	seed with system time, not tick count
 		04		02aug23	restore snapshot support
+		05		02aug23	export PNG format by default
 
 		TripLight view
  
@@ -48,8 +49,10 @@ IMPLEMENT_DYNCREATE(CTripLightView, CView)
 /////////////////////////////////////////////////////////////////////////////
 // CTripLightView construction/destruction
 
-#define BMP_EXT _T(".bmp")
-#define BMP_FILTER _T("Bitmap Files (*.bmp)|*.bmp|All Files (*.*)|*.*||")
+#define BMP_FILE_EXT _T(".bmp")
+#define PNG_FILE_EXT _T(".png")
+#define EXPORT_FILTER _T("PNG Files (*.png)|*.png|Bitmap Files (*.bmp)|*.bmp|All Files (*.*)|*.*||")
+#define SNAPSHOT_FILTER _T("TripLight Snapshots (*.tripsnap)|*.tripsnap|All Files (*.*)|*.*||")
 
 const LPCTSTR CTripLightView::m_arrNoteName[OCTAVE] = {
 	_T("C"), _T("Db"), _T("D"), _T("Eb"), _T("E"), _T("F"), 
@@ -60,8 +63,6 @@ const LPCTSTR CTripLightView::m_arrNoteName[OCTAVE] = {
 #define SHOW_PERF_STATS 0
 #define EXPORT_MIDI_ONLY 0
 #define DUMP_MIDI_TEXT 0
-
-#define SNAPSHOT_FILTER _T("TripLight Snapshots (*.tripsnap)|*.tripsnap|All Files (*.*)|*.*||")
 
 CTripLightView::CTripLightView()
 {
@@ -1188,11 +1189,18 @@ LRESULT CTripLightView::OnMappingChange(WPARAM wParam, LPARAM lParam)
 void CTripLightView::OnFileExport() 
 {
 	CPause	pause(*this);
-	CFileDialog	fd(false, BMP_EXT, GetDefaultFileName(), OFN_OVERWRITEPROMPT, BMP_FILTER);
+	CFileDialog	fd(false, PNG_FILE_EXT, GetDefaultFileName(), OFN_OVERWRITEPROMPT, EXPORT_FILTER);
 	if (fd.DoModal() == IDOK) {
 		CWaitCursor	wc;
-		if (!ExportBitmap(fd.GetPathName(), GetExportSize()))
-			AfxThrowResourceException();
+		CString	sFileName(fd.GetFileName());
+		LPCTSTR	pszExt = PathFindExtension(sFileName);
+		if (pszExt != NULL && !_tcsicmp(pszExt, PNG_FILE_EXT)) {	// if file extension is PNG
+			if (!ExportPNG(fd.GetPathName(), GetExportSize()))
+				AfxThrowResourceException();
+		} else {	// assume bitmap
+			if (!ExportBitmap(fd.GetPathName(), GetExportSize()))
+				AfxThrowResourceException();
+		}
 	}
 }
 

@@ -223,12 +223,10 @@ void CTripLightDoc::Dump(CDumpContext& dc) const
 BOOL CTripLightDoc::OnOpenDocument(LPCTSTR lpszPathName) 
 {
 	LPCTSTR	pszExt = PathFindExtension(lpszPathName);
-	if (pszExt != NULL) {	// if extension found
-		if (!_tcsicmp(pszExt, SNAPSHOT_FILE_EXT)) {	// if extension matches
-			CTripLightView	*pView = STATIC_DOWNCAST(CTripLightView, theApp.GetMain()->GetActiveView());
-			pView->LoadSnapshot(lpszPathName);
-			return FALSE;
-		}
+	if (pszExt != NULL && !_tcsicmp(pszExt, SNAPSHOT_FILE_EXT)) {	// if file extension is snapshot
+		CTripLightView	*pView = STATIC_DOWNCAST(CTripLightView, theApp.GetMain()->GetActiveView());
+		pView->LoadSnapshot(lpszPathName);
+		return FALSE;
 	}
 	CIniFile	file;
 	file.Open(lpszPathName, CFile::modeRead);
